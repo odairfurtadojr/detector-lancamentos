@@ -24,14 +24,15 @@ from playwright.sync_api import sync_playwright
 import yagmail
 
 # ==========================================================
-# CONFIGURAÇÕES
+# CONFIGURAÇÕES DE E-MAIL
 # ==========================================================
 
-EMAIL = "odair.furtado@ui.com"
-SENHA = "ww852000000"
+EMAIL = "seu_email@empresa.com"
+SENHA = "sua_senha"
 
 DESTINATARIOS = [
-    "odair.furtado@ui.com"
+    "destinatario1@empresa.com",
+    "destinatario2@empresa.com"
 ]
 
 engine = create_engine(
@@ -123,7 +124,13 @@ def enviar_email(assunto, mensagem):
         yag = yagmail.SMTP(
             user=EMAIL,
             password=SENHA,
+
+            # Office365
             host="smtp.office365.com",
+
+            # Gmail
+            # host="smtp.gmail.com",
+
             port=587,
             smtp_starttls=True,
             smtp_ssl=False
@@ -198,6 +205,10 @@ def buscar_produtos():
 
     categorias = {
 
+        # ==================================================
+        # UNIFI
+        # ==================================================
+
         "Switching":
         "https://techspecs.ui.com/unifi/switching",
 
@@ -225,17 +236,24 @@ def buscar_produtos():
         "Accessories":
         "https://techspecs.ui.com/unifi/accessories",
 
+        # ==================================================
+        # UISP
+        # ==================================================
+
+        "UISP 60GHz Wireless":
+        "https://techspecs.ui.com/uisp/60ghz-wireless",
+
         "UISP Wireless":
         "https://techspecs.ui.com/uisp/wireless",
 
-        "UISP Switching":
-        "https://techspecs.ui.com/uisp/switching",
+        "UISP Fiber":
+        "https://techspecs.ui.com/uisp/fiber",
 
-        "UISP Routing":
-        "https://techspecs.ui.com/uisp/routing",
+        "UISP Wired":
+        "https://techspecs.ui.com/uisp/wired",
 
-        "UISP Accessories":
-        "https://techspecs.ui.com/uisp/accessories"
+        "UISP Accessory Tech":
+        "https://techspecs.ui.com/uisp/accessory-tech"
     }
 
     with sync_playwright() as p:
@@ -290,14 +308,37 @@ def buscar_produtos():
                         if "techspecs.ui.com" not in href:
                             continue
 
-                        partes = href.replace(
+                        path = href.replace(
                             "https://techspecs.ui.com/",
                             ""
-                        ).split("/")
+                        ).strip("/")
 
-                        # produto real:
-                        # unifi/switching/produto
-                        if len(partes) < 3:
+                        partes = path.split("/")
+
+                        # ==================================
+                        # IGNORA PÁGINAS RAIZ
+                        # ==================================
+
+                        blacklist_paginas = [
+                            "unifi",
+                            "uisp",
+                            "switching",
+                            "wifi",
+                            "routing",
+                            "cameras-nvrs",
+                            "door-access",
+                            "phones",
+                            "power-tech",
+                            "cloud-gateways",
+                            "accessories",
+                            "wireless",
+                            "fiber",
+                            "wired",
+                            "accessory-tech",
+                            "60ghz-wireless"
+                        ]
+
+                        if partes[-1] in blacklist_paginas:
                             continue
 
                         slug = partes[-1]
