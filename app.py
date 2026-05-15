@@ -237,6 +237,16 @@ def buscar_produtos():
         "https://techspecs.ui.com/unifi/accessories",
 
         # ==================================================
+        # UNIFI EXTRA
+        # ==================================================
+
+        "Integrations":
+        "https://techspecs.ui.com/unifi/integrations",
+
+        "Advanced Hosting":
+        "https://techspecs.ui.com/unifi/advanced-hosting",
+
+        # ==================================================
         # UISP
         # ==================================================
 
@@ -335,7 +345,9 @@ def buscar_produtos():
                             "fiber",
                             "wired",
                             "accessory-tech",
-                            "60ghz-wireless"
+                            "60ghz-wireless",
+                            "integrations",
+                            "advanced-hosting"
                         ]
 
                         if partes[-1] in blacklist_paginas:
