@@ -1,5 +1,6 @@
 streamlit
 pandas
 sqlalchemy
-playwright
-greenlet
+openpyxl
+playwright==1.52.0
+playwright-stealth
