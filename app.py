@@ -3,12 +3,46 @@
 # DETECTOR DE LANÇAMENTOS UBIQUITI
 # ==========================================================
 
+import os
 import re
+import subprocess
+
 import pandas as pd
 import streamlit as st
 
 from datetime import datetime
 from sqlalchemy import create_engine
+
+# ==========================================================
+# AUTO INSTALL PLAYWRIGHT CHROMIUM
+# ==========================================================
+
+PLAYWRIGHT_PATH = "/home/appuser/.cache/ms-playwright"
+
+if not os.path.exists(PLAYWRIGHT_PATH):
+
+    try:
+
+        subprocess.run(
+
+            [
+                "playwright",
+                "install",
+                "chromium"
+            ],
+
+            check=False
+        )
+
+    except Exception as e:
+
+        print(
+            f"ERRO INSTALL PLAYWRIGHT: {e}"
+        )
+
+# ==========================================================
+# PLAYWRIGHT
+# ==========================================================
 
 from playwright.sync_api import sync_playwright
 
@@ -62,35 +96,35 @@ def formatar_nome(slug):
 
     partes_formatadas = []
 
+    upper_words = {
+
+        "udm",
+        "ucg",
+        "u7",
+        "u6",
+        "u5",
+        "u4",
+        "u3",
+        "u2",
+        "u1",
+        "nvr",
+        "xgs",
+        "ai",
+        "lte",
+        "wan",
+        "lan",
+        "vpn",
+        "dns",
+        "dhcp",
+        "rgb",
+        "led",
+        "sfp",
+        "sfp+",
+        "poe",
+        "wifi"
+    }
+
     for p in partes_nome:
-
-        upper_words = {
-
-            "udm",
-            "ucg",
-            "u7",
-            "u6",
-            "u5",
-            "u4",
-            "u3",
-            "u2",
-            "u1",
-            "nvr",
-            "xgs",
-            "ai",
-            "lte",
-            "wan",
-            "lan",
-            "vpn",
-            "dns",
-            "dhcp",
-            "rgb",
-            "led",
-            "sfp",
-            "sfp+",
-            "poe",
-            "wifi"
-        }
 
         if p.lower() in upper_words:
 
@@ -171,10 +205,6 @@ def buscar_produtos():
 
     with sync_playwright() as p:
 
-        # ==================================================
-        # CHROMIUM CLOUD FIX
-        # ==================================================
-
         browser = p.chromium.launch(
 
             headless=True,
@@ -230,8 +260,11 @@ def buscar_produtos():
                 print("=" * 60)
 
                 page.goto(
+
                     url,
+
                     timeout=120000,
+
                     wait_until="domcontentloaded"
                 )
 
