@@ -1,6 +1,6 @@
 # app.py
 # ==========================================================
-# UBIQUITI TECHSPECS MONITOR
+# DETECTOR DE LANÇAMENTOS UBIQUITI
 # ==========================================================
 
 import re
@@ -12,8 +12,6 @@ from sqlalchemy import create_engine
 
 from playwright.sync_api import sync_playwright
 
-import yagmail
-
 # ==========================================================
 # DATABASE
 # ==========================================================
@@ -21,22 +19,6 @@ import yagmail
 engine = create_engine(
     "sqlite:///ubiquiti_history.db"
 )
-
-# ==========================================================
-# SESSION STATE
-# ==========================================================
-
-if "email_remetente" not in st.session_state:
-
-    st.session_state.email_remetente = ""
-
-if "senha_email" not in st.session_state:
-
-    st.session_state.senha_email = ""
-
-if "emails_destino" not in st.session_state:
-
-    st.session_state.emails_destino = ""
 
 # ==========================================================
 # CRIAR BANCO
@@ -71,138 +53,16 @@ def criar_banco():
         )
 
 # ==========================================================
-# EMAIL
-# ==========================================================
-
-def enviar_email(
-    assunto,
-    mensagem
-):
-
-    try:
-
-        email = (
-            st.session_state
-            .email_remetente
-            .strip()
-        )
-
-        senha = (
-            st.session_state
-            .senha_email
-            .strip()
-        )
-
-        destinos = [
-
-            x.strip()
-
-            for x in (
-                st.session_state
-                .emails_destino
-                .splitlines()
-            )
-
-            if x.strip()
-        ]
-
-        if not email:
-
-            st.error(
-                "Informe o e-mail remetente."
-            )
-
-            return False
-
-        if not senha:
-
-            st.error(
-                "Informe a senha."
-            )
-
-            return False
-
-        if not destinos:
-
-            st.error(
-                "Informe ao menos um destinatário."
-            )
-
-            return False
-
-        yag = yagmail.SMTP(
-
-            user=email,
-            password=senha,
-            host="smtp.office365.com",
-            port=587,
-            smtp_starttls=True,
-            smtp_ssl=False
-        )
-
-        yag.send(
-
-            to=destinos,
-            subject=assunto,
-            contents=mensagem
-        )
-
-        return True
-
-    except Exception as e:
-
-        st.error(
-            f"Erro ao enviar e-mail: {e}"
-        )
-
-        return False
-
-# ==========================================================
-# EMAIL NOVO PRODUTO
-# ==========================================================
-
-def email_novo_produto(row):
-
-    enviar_email(
-
-        "[UBIQUITI] Novo Produto Detectado",
-
-        f"""
-Novo produto detectado.
-
-Produto:
-{row['nome']}
-
-Categoria:
-{row['categoria']}
-
-Link:
-{row['link']}
-
-Data:
-{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
-"""
-    )
-
-# ==========================================================
 # FORMATAR NOME
 # ==========================================================
 
 def formatar_nome(slug):
-
-    # ==============================================
-    # MANTÉM O FORMATO ORIGINAL DO LINK
-    # ==============================================
 
     partes_nome = slug.split("-")
 
     partes_formatadas = []
 
     for p in partes_nome:
-
-        # ==========================================
-        # TERMOS QUE DEVEM FICAR MAIÚSCULOS
-        # ==========================================
 
         upper_words = {
 
@@ -244,17 +104,9 @@ def formatar_nome(slug):
                 p.capitalize()
             )
 
-    # ==============================================
-    # JUNTA COM "-"
-    # ==============================================
-
     nome = "-".join(
         partes_formatadas
     )
-
-    # ==============================================
-    # CORREÇÕES ESPECÍFICAS
-    # ==============================================
 
     correcoes = {
 
@@ -379,10 +231,6 @@ def buscar_produtos():
 
                     try:
 
-                        # ==========================================
-                        # LIMPEZA
-                        # ==========================================
-
                         m = m.replace("\\/", "/")
 
                         m = m.split("?")[0]
@@ -390,10 +238,6 @@ def buscar_produtos():
                         m = m.split("#")[0]
 
                         m = m.rstrip("/")
-
-                        # ==========================================
-                        # IGNORA ARQUIVOS
-                        # ==========================================
 
                         extensoes = [
 
@@ -414,10 +258,6 @@ def buscar_produtos():
                         ):
                             continue
 
-                        # ==========================================
-                        # URL
-                        # ==========================================
-
                         link = (
                             "https://techspecs.ui.com"
                             + m
@@ -432,18 +272,10 @@ def buscar_produtos():
                             if p.strip()
                         ]
 
-                        # ==========================================
-                        # VALIDA
-                        # ==========================================
-
                         if len(partes) < 3:
                             continue
 
                         slug = partes[-1]
-
-                        # ==========================================
-                        # BLACKLIST
-                        # ==========================================
 
                         blacklist = [
 
@@ -471,20 +303,12 @@ def buscar_produtos():
                         if slug.lower() in blacklist:
                             continue
 
-                        # ==========================================
-                        # DUPLICADOS
-                        # ==========================================
-
                         chave = link.lower()
 
                         if chave in visitados:
                             continue
 
                         visitados.add(chave)
-
-                        # ==========================================
-                        # NOME
-                        # ==========================================
 
                         nome = formatar_nome(slug)
 
@@ -620,10 +444,6 @@ def atualizar_historico():
 
     novos["novo"] = True
 
-    for _, row in novos.iterrows():
-
-        email_novo_produto(row)
-
     final = pd.concat([
 
         banco,
@@ -646,88 +466,15 @@ def atualizar_historico():
 
 st.set_page_config(
 
-    page_title="Ubiquiti TechSpecs Monitor",
+    page_title="Detector de Lançamentos Ubiquiti",
     layout="wide"
 )
 
 criar_banco()
 
 st.title(
-    "📡 Ubiquiti TechSpecs Monitor"
+    "📡 Detector de Lançamentos Ubiquiti"
 )
-
-# ==========================================================
-# CONFIGURAÇÃO E-MAIL
-# ==========================================================
-
-st.subheader(
-    "📧 Configuração de Notificações"
-)
-
-col1, col2 = st.columns(2)
-
-with col1:
-
-    st.session_state.email_remetente = st.text_input(
-
-        "E-mail Remetente",
-
-        value=st.session_state.email_remetente,
-
-        placeholder="usuario@empresa.com"
-    )
-
-with col2:
-
-    st.session_state.senha_email = st.text_input(
-
-        "Senha",
-
-        value=st.session_state.senha_email,
-
-        type="password"
-    )
-
-st.session_state.emails_destino = st.text_area(
-
-    "Destinatários (1 por linha)",
-
-    value=st.session_state.emails_destino,
-
-    height=120,
-
-    placeholder="""
-usuario1@empresa.com
-usuario2@empresa.com
-usuario3@empresa.com
-"""
-)
-
-# ==========================================================
-# TESTE E-MAIL
-# ==========================================================
-
-if st.button(
-    "📨 Testar Notificação"
-):
-
-    ok = enviar_email(
-
-        "[UBIQUITI] Teste de Notificação",
-
-        f"""
-Teste de envio realizado com sucesso.
-
-Horário:
-{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
-"""
-    )
-
-    if ok:
-
-        st.success(
-            "E-mail enviado com sucesso."
-        )
 
 st.divider()
 
