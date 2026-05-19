@@ -404,7 +404,8 @@ def atualizar_historico():
     atuais = buscar_produtos()
 
     if atuais.empty:
-        return 0
+
+        return 0, pd.DataFrame()
 
     banco = pd.read_sql(
         "produtos",
@@ -425,7 +426,7 @@ def atualizar_historico():
             index=False
         )
 
-        return 0
+        return 0, pd.DataFrame()
 
     existentes = set(
         banco["link"].tolist()
@@ -438,7 +439,8 @@ def atualizar_historico():
     ].copy()
 
     if novos.empty:
-        return 0
+
+        return 0, pd.DataFrame()
 
     novos["primeira_detecao"] = datetime.now()
 
@@ -458,7 +460,7 @@ def atualizar_historico():
         index=False
     )
 
-    return len(novos)
+    return len(novos), novos
 
 # ==========================================================
 # STREAMLIT
@@ -479,6 +481,14 @@ st.title(
 st.divider()
 
 # ==========================================================
+# SESSION STATE
+# ==========================================================
+
+if "ultimos_novos" not in st.session_state:
+
+    st.session_state.ultimos_novos = pd.DataFrame()
+
+# ==========================================================
 # UPDATE
 # ==========================================================
 
@@ -490,7 +500,9 @@ if st.button(
         "Executando varredura..."
     ):
 
-        qtd = atualizar_historico()
+        qtd, novos = atualizar_historico()
+
+    st.session_state.ultimos_novos = novos
 
     st.success(
         f"{qtd} novos produtos encontrados."
@@ -530,6 +542,44 @@ col2.metric(
 st.divider()
 
 # ==========================================================
+# NOVOS LANÇAMENTOS
+# ==========================================================
+
+novos_df = st.session_state.ultimos_novos
+
+if not novos_df.empty:
+
+    st.subheader(
+        "🆕 Novos Lançamentos Detectados"
+    )
+
+    for _, row in novos_df.iterrows():
+
+        with st.container(border=True):
+
+            st.markdown(
+                f"## {row['nome']}"
+            )
+
+            col1, col2 = st.columns(2)
+
+            col1.markdown(
+                f"**Categoria:** {row['categoria']}"
+            )
+
+            col2.markdown(
+                f"""
+                [🔗 Abrir Produto]({row['link']})
+                """
+            )
+
+            st.success(
+                "Novo produto detectado!"
+            )
+
+    st.divider()
+
+# ==========================================================
 # CATEGORIAS
 # ==========================================================
 
@@ -558,12 +608,36 @@ st.subheader(
     "📦 Produtos"
 )
 
-st.dataframe(
+# ==========================================================
+# DESTAQUE VISUAL
+# ==========================================================
 
-    df.sort_values([
+def destacar_novos(linha):
+
+    if linha["novo"] == True:
+
+        return [
+            "background-color: #16351c; color: #7CFC00;"
+        ] * len(linha)
+
+    return [""] * len(linha)
+
+styled_df = (
+    df
+    .sort_values([
         "categoria",
         "nome"
-    ]),
+    ])
+    .style
+    .apply(
+        destacar_novos,
+        axis=1
+    )
+)
+
+st.dataframe(
+
+    styled_df,
 
     width="stretch"
 )
