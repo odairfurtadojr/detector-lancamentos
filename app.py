@@ -185,6 +185,102 @@ Data:
     )
 
 # ==========================================================
+# FORMATAR NOME
+# ==========================================================
+
+def formatar_nome(slug):
+
+    # ==============================================
+    # MANTÉM O FORMATO ORIGINAL DO LINK
+    # ==============================================
+
+    partes_nome = slug.split("-")
+
+    partes_formatadas = []
+
+    for p in partes_nome:
+
+        # ==========================================
+        # TERMOS QUE DEVEM FICAR MAIÚSCULOS
+        # ==========================================
+
+        upper_words = {
+
+            "udm",
+            "ucg",
+            "u7",
+            "u6",
+            "u5",
+            "u4",
+            "u3",
+            "u2",
+            "u1",
+            "nvr",
+            "xgs",
+            "ai",
+            "lte",
+            "wan",
+            "lan",
+            "vpn",
+            "dns",
+            "dhcp",
+            "rgb",
+            "led",
+            "sfp",
+            "sfp+",
+            "poe",
+            "wifi"
+        }
+
+        if p.lower() in upper_words:
+
+            partes_formatadas.append(
+                p.upper()
+            )
+
+        else:
+
+            partes_formatadas.append(
+                p.capitalize()
+            )
+
+    # ==============================================
+    # JUNTA COM "-"
+    # ==============================================
+
+    nome = "-".join(
+        partes_formatadas
+    )
+
+    # ==============================================
+    # CORREÇÕES ESPECÍFICAS
+    # ==============================================
+
+    correcoes = {
+
+        "POE":
+        "PoE",
+
+        "RJ45":
+        "RJ45",
+
+        "USL-Relay":
+        "Usl-Relay",
+
+        "Pocketkeyfob":
+        "Pocket-Keyfob"
+    }
+
+    for antigo, novo in correcoes.items():
+
+        nome = nome.replace(
+            antigo,
+            novo
+        )
+
+    return nome
+
+# ==========================================================
 # SCRAPER
 # ==========================================================
 
@@ -390,42 +486,7 @@ def buscar_produtos():
                         # NOME
                         # ==========================================
 
-                        nome = (
-
-                            slug
-                            .replace("-", " ")
-                            .replace("_", " ")
-                            .title()
-                        )
-
-                        # ==========================================
-                        # CORREÇÕES
-                        # ==========================================
-
-                        correcoes = {
-
-                            "8 Poe":
-                            "8 PoE",
-
-                            "Ucg Fiber":
-                            "UCG Fiber",
-
-                            "U7 Pro Xgs":
-                            "U7 Pro XGS",
-
-                            "Rj45 Inline Coupler Indoor":
-                            "RJ45 Inline Coupler Indoor",
-
-                            "Rj45 Inline Coupler Outdoor":
-                            "RJ45 Inline Coupler Outdoor",
-
-                            "Pocketkeyfob":
-                            "Pocket Keyfob"
-                        }
-
-                        if nome in correcoes:
-
-                            nome = correcoes[nome]
+                        nome = formatar_nome(slug)
 
                         produtos.append({
 
