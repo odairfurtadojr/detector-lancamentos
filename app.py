@@ -171,11 +171,55 @@ def buscar_produtos():
 
     with sync_playwright() as p:
 
+        # ==================================================
+        # CHROMIUM CLOUD FIX
+        # ==================================================
+
         browser = p.chromium.launch(
-            headless=True
+
+            headless=True,
+
+            args=[
+
+                "--no-sandbox",
+
+                "--disable-setuid-sandbox",
+
+                "--disable-dev-shm-usage",
+
+                "--disable-gpu",
+
+                "--disable-software-rasterizer",
+
+                "--disable-extensions",
+
+                "--disable-background-networking",
+
+                "--disable-background-timer-throttling",
+
+                "--disable-renderer-backgrounding",
+
+                "--disable-features=site-per-process"
+            ]
         )
 
-        page = browser.new_page()
+        page = browser.new_page(
+
+            viewport={
+
+                "width": 1920,
+                "height": 1080
+            },
+
+            user_agent=(
+
+                "Mozilla/5.0 "
+                "(Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 "
+                "(KHTML, like Gecko) "
+                "Chrome/122.0.0.0 Safari/537.36"
+            )
+        )
 
         for categoria, url in categorias.items():
 
@@ -188,7 +232,7 @@ def buscar_produtos():
                 page.goto(
                     url,
                     timeout=120000,
-                    wait_until="networkidle"
+                    wait_until="domcontentloaded"
                 )
 
                 page.wait_for_timeout(5000)
