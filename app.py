@@ -1,35 +1,43 @@
 # app.py
 # ==========================================================
-# DETECTOR DE LANÇAMENTOS UBIQUITI - UNIFI ONLY
+# UBIQUITI TECHSPECS MONITOR
 # ==========================================================
 
 import re
-import streamlit as st
+import time
+
 import pandas as pd
-from sqlalchemy import create_engine
+import streamlit as st
+
 from datetime import datetime
+from sqlalchemy import create_engine
+
 from playwright.sync_api import sync_playwright
+
 import yagmail
 
 # ==========================================================
-# CONFIGURAÇÕES DE E-MAIL
+# EMAIL
 # ==========================================================
 
 EMAIL = "seu_email@empresa.com"
 SENHA = "sua_senha"
 
 DESTINATARIOS = [
-    "destinatario1@empresa.com",
-    "destinatario2@empresa.com"
+    "seu_email@empresa.com"
 ]
 
 # ==========================================================
-# BANCO
+# DATABASE
 # ==========================================================
 
 engine = create_engine(
     "sqlite:///ubiquiti_history.db"
 )
+
+# ==========================================================
+# CRIAR BANCO
+# ==========================================================
 
 def criar_banco():
 
@@ -43,6 +51,7 @@ def criar_banco():
     except:
 
         vazio = pd.DataFrame(columns=[
+
             "nome",
             "categoria",
             "link",
@@ -51,6 +60,7 @@ def criar_banco():
         ])
 
         vazio.to_sql(
+
             "produtos",
             engine,
             if_exists="replace",
@@ -58,50 +68,18 @@ def criar_banco():
         )
 
 # ==========================================================
-# STREAMLIT
-# ==========================================================
-
-st.set_page_config(
-    page_title="Detector de Lançamentos Ubiquiti",
-    layout="wide"
-)
-
-# ==========================================================
-# CSS
-# ==========================================================
-
-st.markdown("""
-<style>
-
-.block-container{
-    padding-top:1.5rem;
-}
-
-div[data-testid="metric-container"]{
-    background:#111827;
-    border:1px solid #1f2937;
-    border-radius:12px;
-    padding:15px;
-}
-
-.email-button button{
-    background:#111827 !important;
-    color:white !important;
-    border:1px solid #374151 !important;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# ==========================================================
 # EMAIL
 # ==========================================================
 
-def enviar_email(assunto, mensagem):
+def enviar_email(
+    assunto,
+    mensagem
+):
 
     try:
 
         yag = yagmail.SMTP(
+
             user=EMAIL,
             password=SENHA,
             host="smtp.office365.com",
@@ -111,6 +89,7 @@ def enviar_email(assunto, mensagem):
         )
 
         yag.send(
+
             to=DESTINATARIOS,
             subject=assunto,
             contents=mensagem
@@ -120,39 +99,33 @@ def enviar_email(assunto, mensagem):
 
     except Exception as e:
 
-        st.error(f"Erro ao enviar e-mail: {e}")
+        st.error(
+            f"Erro ao enviar e-mail: {e}"
+        )
 
         return False
 
+# ==========================================================
+# EMAIL NOVO PRODUTO
+# ==========================================================
 
-def email_teste():
+def email_novo_produto(row):
 
-    return enviar_email(
-        "[UBIQUITI] Teste",
-        f"""
-Teste de notificação.
+    enviar_email(
 
-Horário:
-{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
-"""
-    )
-
-
-def email_novo_produto(nome, categoria, link):
-
-    return enviar_email(
         "[UBIQUITI] Novo Produto Detectado",
+
         f"""
 Novo produto detectado.
 
 Produto:
-{nome}
+{row['nome']}
 
 Categoria:
-{categoria}
+{row['categoria']}
 
 Link:
-{link}
+{row['link']}
 
 Data:
 {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
@@ -171,44 +144,35 @@ def buscar_produtos():
 
     categorias = {
 
+        "Cloud Gateways":
+        "https://techspecs.ui.com/unifi/cloud-gateways",
+
         "Switching":
         "https://techspecs.ui.com/unifi/switching",
 
         "WiFi":
         "https://techspecs.ui.com/unifi/wifi",
 
-        "Routing":
-        "https://techspecs.ui.com/unifi/routing",
-
-        "Cameras":
+        "Camera Security":
         "https://techspecs.ui.com/unifi/cameras-nvrs",
 
-        "Access":
+        "Door Access":
         "https://techspecs.ui.com/unifi/door-access",
-
-        "Phones":
-        "https://techspecs.ui.com/unifi/phones",
-
-        "Power":
-        "https://techspecs.ui.com/unifi/power-tech",
-
-        "Cloud Gateways":
-        "https://techspecs.ui.com/unifi/cloud-gateways",
-
-        "Accessories":
-        "https://techspecs.ui.com/unifi/accessories",
 
         "Integrations":
         "https://techspecs.ui.com/unifi/integrations",
 
         "Advanced Hosting":
-        "https://techspecs.ui.com/unifi/advanced-hosting"
+        "https://techspecs.ui.com/unifi/advanced-hosting",
+
+        "Accessories":
+        "https://techspecs.ui.com/unifi/accessories"
     }
 
     with sync_playwright() as p:
 
         browser = p.chromium.launch(
-            headless=False
+            headless=True
         )
 
         page = browser.new_page()
@@ -217,149 +181,185 @@ def buscar_produtos():
 
             try:
 
+                print("=" * 60)
                 print(f"VARRENDO: {categoria}")
+                print("=" * 60)
 
                 page.goto(
                     url,
-                    timeout=120000
+                    timeout=120000,
+                    wait_until="networkidle"
                 )
 
                 page.wait_for_timeout(5000)
 
                 # ==================================================
-                # SCROLL
+                # SCROLL COMPLETO
                 # ==================================================
 
-                for _ in range(50):
+                for _ in range(100):
 
-                    page.mouse.wheel(0, 50000)
+                    page.mouse.wheel(
+                        0,
+                        50000
+                    )
 
                     page.wait_for_timeout(300)
 
+                page.wait_for_timeout(3000)
+
                 # ==================================================
-                # CARDS
+                # HTML
                 # ==================================================
 
-                cards = page.locator(
-                    "a[href*='/unifi/']"
+                html = page.content()
+
+                # ==================================================
+                # REGEX
+                # ==================================================
+
+                regex = r'\/unifi\/[^"\']+'
+
+                matches = re.findall(
+                    regex,
+                    html
                 )
 
-                total_cards = cards.count()
+                encontrados = 0
 
-                print(f"CARDS: {total_cards}")
-
-                for i in range(total_cards):
+                for m in matches:
 
                     try:
 
-                        card = cards.nth(i)
+                        # ==========================================
+                        # LIMPEZA
+                        # ==========================================
 
-                        # ==================================================
-                        # LINK REAL DO PRODUTO
-                        # ==================================================
+                        m = m.replace("\\/", "/")
 
-                        href = None
+                        m = m.split("?")[0]
 
-                        links = card.locator("a").all()
+                        m = m.split("#")[0]
 
-                        for lnk in links:
+                        m = m.rstrip("/")
 
-                            try:
+                        # ==========================================
+                        # IGNORA ARQUIVOS
+                        # ==========================================
 
-                                h = lnk.get_attribute("href")
+                        extensoes = [
 
-                                if not h:
-                                    continue
+                            ".svg",
+                            ".png",
+                            ".jpg",
+                            ".jpeg",
+                            ".gif",
+                            ".webp",
+                            ".css",
+                            ".js",
+                            ".json"
+                        ]
 
-                                path_tmp = h.replace(
-                                    "https://techspecs.ui.com/",
-                                    ""
-                                ).strip("/")
-
-                                partes_tmp = path_tmp.split("/")
-
-                                if len(partes_tmp) >= 3:
-
-                                    href = h
-                                    break
-
-                            except:
-                                pass
-
-                        if not href:
-                            href = card.get_attribute("href")
-
-                        if not href:
+                        if any(
+                            ext in m.lower()
+                            for ext in extensoes
+                        ):
                             continue
 
-                        # ==================================================
-                        # URL COMPLETA
-                        # ==================================================
+                        # ==========================================
+                        # URL
+                        # ==========================================
 
-                        if "techspecs.ui.com" not in href:
+                        link = (
+                            "https://techspecs.ui.com"
+                            + m
+                        )
 
-                            href = (
-                                "https://techspecs.ui.com"
-                                + href
-                            )
+                        partes = [
 
-                        href = href.split("#")[0]
+                            p.strip()
 
-                        # ==================================================
-                        # PRODUTO REAL
-                        # ==================================================
+                            for p in m.split("/")
 
-                        path = href.replace(
-                            "https://techspecs.ui.com/",
-                            ""
-                        ).strip("/")
+                            if p.strip()
+                        ]
 
-                        partes = path.split("/")
+                        # ==========================================
+                        # VALIDA
+                        # ==========================================
 
                         if len(partes) < 3:
                             continue
 
                         slug = partes[-1]
 
+                        # ==========================================
+                        # BLACKLIST
+                        # ==========================================
+
                         blacklist = [
-                            "unifi",
+
                             "switching",
                             "wifi",
-                            "routing",
+                            "cloud-gateways",
                             "cameras-nvrs",
                             "door-access",
-                            "phones",
-                            "power-tech",
-                            "cloud-gateways",
-                            "accessories",
                             "integrations",
-                            "advanced-hosting"
+                            "advanced-hosting",
+                            "accessories",
+
+                            "compare",
+                            "builder",
+                            "matrix",
+
+                            "store",
+                            "downloads",
+                            "support",
+
+                            "products",
+                            "all"
                         ]
 
-                        if slug in blacklist:
+                        if slug.lower() in blacklist:
                             continue
 
-                        # ==================================================
-                        # NOME PELO SLUG (FONTE PRINCIPAL)
-                        # ==================================================
+                        # ==========================================
+                        # DUPLICADOS
+                        # ==========================================
 
-                        slug_limpo = slug.split("?")[0]
+                        chave = link.lower()
+
+                        if chave in visitados:
+                            continue
+
+                        visitados.add(chave)
+
+                        # ==========================================
+                        # NOME
+                        # ==========================================
 
                         nome = (
-                            slug_limpo
+
+                            slug
                             .replace("-", " ")
                             .replace("_", " ")
                             .title()
                         )
 
-                        # ==================================================
-                        # CORREÇÕES MANUAIS
-                        # ==================================================
+                        # ==========================================
+                        # CORREÇÕES
+                        # ==========================================
 
                         correcoes = {
 
-                            "Pocketkeyfob":
-                            "Pocket Keyfob",
+                            "8 Poe":
+                            "8 PoE",
+
+                            "Ucg Fiber":
+                            "UCG Fiber",
+
+                            "U7 Pro Xgs":
+                            "U7 Pro XGS",
 
                             "Rj45 Inline Coupler Indoor":
                             "RJ45 Inline Coupler Indoor",
@@ -367,56 +367,94 @@ def buscar_produtos():
                             "Rj45 Inline Coupler Outdoor":
                             "RJ45 Inline Coupler Outdoor",
 
-                            "Easy Cable":
-                            "Easy Cable",
-
-                            "8 Poe":
-                            "8 PoE"
+                            "Pocketkeyfob":
+                            "Pocket Keyfob"
                         }
 
                         if nome in correcoes:
+
                             nome = correcoes[nome]
 
-                        nome = nome.strip()
-
-                        if len(nome) < 3:
-                            continue
-
-                        chave = f"{nome}|{href}"
-
-                        if chave in visitados:
-                            continue
-
-                        visitados.add(chave)
-
                         produtos.append({
-                            "nome": nome,
-                            "categoria": categoria,
-                            "link": href
+
+                            "nome":
+                            nome,
+
+                            "categoria":
+                            categoria,
+
+                            "link":
+                            link
                         })
 
-                    except:
-                        pass
+                        encontrados += 1
+
+                    except Exception as e:
+
+                        print(
+                            f"ERRO MATCH: {e}"
+                        )
+
+                print(
+                    f"PRODUTOS: {encontrados}"
+                )
 
             except Exception as e:
 
-                print(e)
+                print(
+                    f"ERRO: {e}"
+                )
 
         browser.close()
+
+    # ======================================================
+    # DATAFRAME
+    # ======================================================
 
     df = pd.DataFrame(produtos)
 
     if df.empty:
 
         return pd.DataFrame(columns=[
+
             "nome",
             "categoria",
             "link"
         ])
 
-    df = df.drop_duplicates()
+    # ======================================================
+    # REMOVE DUPLICADOS
+    # ======================================================
 
-    print(f"TOTAL PRODUTOS: {len(df)}")
+    df = (
+        df
+        .drop_duplicates(
+            subset=["link"]
+        )
+        .reset_index(drop=True)
+    )
+
+    # ======================================================
+    # LOG FINAL
+    # ======================================================
+
+    print("\n" + "=" * 60)
+    print("CONTAGEM FINAL")
+    print("=" * 60)
+
+    print(
+        df["categoria"]
+        .value_counts()
+        .sort_index()
+    )
+
+    print("=" * 60)
+
+    print(
+        f"TOTAL PRODUTOS: {len(df)}"
+    )
+
+    print("=" * 60)
 
     return df
 
@@ -443,6 +481,7 @@ def atualizar_historico():
         atuais["novo"] = False
 
         atuais.to_sql(
+
             "produtos",
             engine,
             if_exists="replace",
@@ -456,7 +495,9 @@ def atualizar_historico():
     )
 
     novos = atuais[
-        ~atuais["link"].isin(existentes)
+        ~atuais["link"].isin(
+            existentes
+        )
     ].copy()
 
     if novos.empty:
@@ -468,18 +509,16 @@ def atualizar_historico():
 
     for _, row in novos.iterrows():
 
-        email_novo_produto(
-            row["nome"],
-            row["categoria"],
-            row["link"]
-        )
+        email_novo_produto(row)
 
     final = pd.concat([
+
         banco,
         novos
     ])
 
     final.to_sql(
+
         "produtos",
         engine,
         if_exists="replace",
@@ -489,48 +528,28 @@ def atualizar_historico():
     return len(novos)
 
 # ==========================================================
-# INICIALIZAÇÃO
+# STREAMLIT
 # ==========================================================
+
+st.set_page_config(
+
+    page_title="Detector de Lançamentos Ubiquiti",
+    layout="wide"
+)
 
 criar_banco()
 
-# ==========================================================
-# HEADER
-# ==========================================================
-
-col1, col2 = st.columns([8,1])
-
-with col1:
-
-    st.title(
-        "📡 Detector de Lançamentos Ubiquiti"
-    )
-
-with col2:
-
-    st.markdown(
-        '<div class="email-button">',
-        unsafe_allow_html=True
-    )
-
-    if st.button("📧 Teste"):
-
-        if email_teste():
-
-            st.toast(
-                "E-mail enviado."
-            )
-
-    st.markdown(
-        '</div>',
-        unsafe_allow_html=True
-    )
+st.title(
+    "📡 Ubiquiti TechSpecs Monitor"
+)
 
 # ==========================================================
 # UPDATE
 # ==========================================================
 
-if st.button("🔄 Atualizar Agora"):
+if st.button(
+    "🔄 Atualizar Agora"
+):
 
     with st.spinner(
         "Executando varredura..."
@@ -555,165 +574,69 @@ df = pd.read_sql(
 # KPIS
 # ==========================================================
 
-total = len(df)
+st.subheader("📊 Indicadores")
 
-novos = len(
-    df[df["novo"] == True]
+col1, col2 = st.columns(2)
+
+col1.metric(
+    "Total Produtos",
+    len(df)
 )
 
-categorias_contagem = (
+col2.metric(
+
+    "Novos Produtos",
+
+    len(
+        df[df["novo"] == True]
+    )
+)
+
+st.divider()
+
+# ==========================================================
+# CATEGORIAS
+# ==========================================================
+
+st.subheader(
+    "📂 Categorias"
+)
+
+cats = (
     df["categoria"]
     .value_counts()
 )
 
-st.subheader("📊 Indicadores")
+for cat, qtd in cats.items():
 
-cols = st.columns(4)
-
-cols[0].metric(
-    "Total Produtos",
-    total
-)
-
-cols[1].metric(
-    "Novos Lançamentos",
-    novos
-)
-
-i = 2
-
-for categoria, qtd in categorias_contagem.items():
-
-    if i >= 4:
-
-        cols = st.columns(4)
-
-        i = 0
-
-    cols[i].metric(
-        categoria,
-        qtd
+    st.write(
+        f"• {cat}: {qtd}"
     )
-
-    i += 1
 
 st.divider()
-
-# ==========================================================
-# EXPORTAÇÃO CSV
-# ==========================================================
-
-st.subheader("📥 Exportação")
-
-exportar_df = df.copy()
-
-exportar_df["primeira_detecao"] = (
-    exportar_df["primeira_detecao"]
-    .astype(str)
-)
-
-csv = exportar_df.to_csv(
-    index=False,
-    sep=";",
-    encoding="utf-8-sig"
-)
-
-st.download_button(
-    label="📄 Exportar CSV Completo",
-    data=csv,
-    file_name=f"""
-ubiquiti_produtos_{
-datetime.now().strftime('%Y%m%d_%H%M%S')
-}.csv
-""".replace("\n", ""),
-    mime="text/csv"
-)
-
-st.divider()
-
-# ==========================================================
-# FILTROS
-# ==========================================================
-
-st.subheader("🔎 Filtros")
-
-categorias_lista = sorted(
-    df["categoria"]
-    .dropna()
-    .unique()
-)
-
-categoria_filtro = st.selectbox(
-    "Categoria",
-    ["Todas"] + categorias_lista
-)
-
-busca = st.text_input(
-    "Buscar Produto"
-)
-
-filtrado = df.copy()
-
-if categoria_filtro != "Todas":
-
-    filtrado = filtrado[
-        filtrado["categoria"]
-        == categoria_filtro
-    ]
-
-if busca:
-
-    filtrado = filtrado[
-        filtrado["nome"]
-        .str.contains(
-            busca,
-            case=False,
-            na=False
-        )
-    ]
-
-# ==========================================================
-# NOVOS LANÇAMENTOS
-# ==========================================================
-
-st.subheader("🆕 Novos Lançamentos")
-
-novos_df = filtrado[
-    filtrado["novo"] == True
-]
-
-if novos_df.empty:
-
-    st.info(
-        "Nenhum lançamento novo."
-    )
-
-else:
-
-    st.dataframe(
-        novos_df.sort_values(
-            "primeira_detecao",
-            ascending=False
-        ),
-        width="stretch"
-    )
 
 # ==========================================================
 # HISTÓRICO
 # ==========================================================
 
-st.subheader("📦 Histórico Completo")
+st.subheader(
+    "📦 Produtos"
+)
 
 st.dataframe(
-    filtrado.sort_values(
+
+    df.sort_values([
+        "categoria",
         "nome"
-    ),
+    ]),
+
     width="stretch"
 )
 
 st.divider()
 
 st.caption(
+
     f"""
 Última atualização:
 {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
