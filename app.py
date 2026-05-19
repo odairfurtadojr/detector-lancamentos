@@ -7,6 +7,8 @@ import os
 import re
 import subprocess
 
+st.write("VERSAO NOVA DO APP")
+
 import pandas as pd
 import streamlit as st
 
