@@ -4,8 +4,6 @@
 # ==========================================================
 
 import re
-import time
-
 import pandas as pd
 import streamlit as st
 
@@ -17,23 +15,28 @@ from playwright.sync_api import sync_playwright
 import yagmail
 
 # ==========================================================
-# EMAIL
-# ==========================================================
-
-EMAIL = "seu_email@empresa.com"
-SENHA = "sua_senha"
-
-DESTINATARIOS = [
-    "seu_email@empresa.com"
-]
-
-# ==========================================================
 # DATABASE
 # ==========================================================
 
 engine = create_engine(
     "sqlite:///ubiquiti_history.db"
 )
+
+# ==========================================================
+# SESSION STATE
+# ==========================================================
+
+if "email_remetente" not in st.session_state:
+
+    st.session_state.email_remetente = ""
+
+if "senha_email" not in st.session_state:
+
+    st.session_state.senha_email = ""
+
+if "emails_destino" not in st.session_state:
+
+    st.session_state.emails_destino = ""
 
 # ==========================================================
 # CRIAR BANCO
@@ -78,10 +81,59 @@ def enviar_email(
 
     try:
 
+        email = (
+            st.session_state
+            .email_remetente
+            .strip()
+        )
+
+        senha = (
+            st.session_state
+            .senha_email
+            .strip()
+        )
+
+        destinos = [
+
+            x.strip()
+
+            for x in (
+                st.session_state
+                .emails_destino
+                .splitlines()
+            )
+
+            if x.strip()
+        ]
+
+        if not email:
+
+            st.error(
+                "Informe o e-mail remetente."
+            )
+
+            return False
+
+        if not senha:
+
+            st.error(
+                "Informe a senha."
+            )
+
+            return False
+
+        if not destinos:
+
+            st.error(
+                "Informe ao menos um destinatário."
+            )
+
+            return False
+
         yag = yagmail.SMTP(
 
-            user=EMAIL,
-            password=SENHA,
+            user=email,
+            password=senha,
             host="smtp.office365.com",
             port=587,
             smtp_starttls=True,
@@ -90,7 +142,7 @@ def enviar_email(
 
         yag.send(
 
-            to=DESTINATARIOS,
+            to=destinos,
             subject=assunto,
             contents=mensagem
         )
@@ -480,7 +532,7 @@ def atualizar_historico():
 
         atuais["novo"] = False
 
-        atuais.to_sql(
+        atuais.reset_index(drop=True).to_sql(
 
             "produtos",
             engine,
@@ -517,7 +569,7 @@ def atualizar_historico():
         novos
     ])
 
-    final.to_sql(
+    final.reset_index(drop=True).to_sql(
 
         "produtos",
         engine,
@@ -533,7 +585,7 @@ def atualizar_historico():
 
 st.set_page_config(
 
-    page_title="Detector de Lançamentos Ubiquiti",
+    page_title="Ubiquiti TechSpecs Monitor",
     layout="wide"
 )
 
@@ -542,6 +594,81 @@ criar_banco()
 st.title(
     "📡 Ubiquiti TechSpecs Monitor"
 )
+
+# ==========================================================
+# CONFIGURAÇÃO E-MAIL
+# ==========================================================
+
+st.subheader(
+    "📧 Configuração de Notificações"
+)
+
+col1, col2 = st.columns(2)
+
+with col1:
+
+    st.session_state.email_remetente = st.text_input(
+
+        "E-mail Remetente",
+
+        value=st.session_state.email_remetente,
+
+        placeholder="usuario@empresa.com"
+    )
+
+with col2:
+
+    st.session_state.senha_email = st.text_input(
+
+        "Senha",
+
+        value=st.session_state.senha_email,
+
+        type="password"
+    )
+
+st.session_state.emails_destino = st.text_area(
+
+    "Destinatários (1 por linha)",
+
+    value=st.session_state.emails_destino,
+
+    height=120,
+
+    placeholder="""
+usuario1@empresa.com
+usuario2@empresa.com
+usuario3@empresa.com
+"""
+)
+
+# ==========================================================
+# TESTE E-MAIL
+# ==========================================================
+
+if st.button(
+    "📨 Testar Notificação"
+):
+
+    ok = enviar_email(
+
+        "[UBIQUITI] Teste de Notificação",
+
+        f"""
+Teste de envio realizado com sucesso.
+
+Horário:
+{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+"""
+    )
+
+    if ok:
+
+        st.success(
+            "E-mail enviado com sucesso."
+        )
+
+st.divider()
 
 # ==========================================================
 # UPDATE
