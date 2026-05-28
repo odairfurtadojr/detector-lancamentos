@@ -6,17 +6,19 @@
 import os
 import re
 import subprocess
+import sys
+
 import pandas as pd
 import streamlit as st
 
 from datetime import datetime
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 # ==========================================================
 # AUTO INSTALL PLAYWRIGHT CHROMIUM
 # ==========================================================
 
-PLAYWRIGHT_PATH = "/home/appuser/.cache/ms-playwright"
+PLAYWRIGHT_PATH = os.path.expanduser("~/.cache/ms-playwright")
 
 if not os.path.exists(PLAYWRIGHT_PATH):
 
@@ -25,6 +27,8 @@ if not os.path.exists(PLAYWRIGHT_PATH):
         subprocess.run(
 
             [
+                sys.executable,
+                "-m",
                 "playwright",
                 "install",
                 "chromium"
@@ -66,7 +70,7 @@ def criar_banco():
             engine
         )
 
-    except:
+    except Exception:
 
         vazio = pd.DataFrame(columns=[
 
@@ -341,11 +345,11 @@ def buscar_produtos():
 
                         partes = [
 
-                            p.strip()
+                            parte.strip()
 
-                            for p in m.split("/")
+                            for parte in m.split("/")
 
-                            if p.strip()
+                            if parte.strip()
                         ]
 
                         if len(partes) < 3:
@@ -483,10 +487,19 @@ def atualizar_historico():
 
         return 0, pd.DataFrame()
 
-    banco = pd.read_sql(
-        "produtos",
-        engine
-    )
+    try:
+        banco = pd.read_sql(
+            "SELECT * FROM produtos",
+            engine
+        )
+    except Exception:
+        banco = pd.DataFrame(columns=[
+            "nome",
+            "categoria",
+            "link",
+            "primeira_detecao",
+            "novo"
+        ])
 
     if banco.empty:
 
@@ -522,6 +535,8 @@ def atualizar_historico():
 
     novos["novo"] = True
 
+    banco["novo"] = False
+
     final = pd.concat([
 
         banco,
@@ -537,6 +552,23 @@ def atualizar_historico():
     )
 
     return len(novos), novos
+
+# ==========================================================
+# MARCAR IDENTIFICADO
+# ==========================================================
+
+def marcar_identificado(link):
+
+    with engine.connect() as conn:
+
+        conn.execute(
+            text(
+                "UPDATE produtos SET novo = 0 WHERE link = :link"
+            ),
+            {"link": link}
+        )
+
+        conn.commit()
 
 # ==========================================================
 # STREAMLIT
@@ -629,7 +661,7 @@ if not novos_df.empty:
         "🆕 Novos Lançamentos Detectados"
     )
 
-    for _, row in novos_df.iterrows():
+    for i, row in novos_df.iterrows():
 
         with st.container(border=True):
 
@@ -637,7 +669,7 @@ if not novos_df.empty:
                 f"## {row['nome']}"
             )
 
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns([3, 3, 2])
 
             col1.markdown(
                 f"**Categoria:** {row['categoria']}"
@@ -648,6 +680,21 @@ if not novos_df.empty:
                 [🔗 Abrir Produto]({row['link']})
                 """
             )
+
+            if col3.button(
+                "✅ Identificar lançamento",
+                key=f"identificar_{i}"
+            ):
+
+                marcar_identificado(row["link"])
+
+                st.session_state.ultimos_novos = (
+                    st.session_state.ultimos_novos[
+                        st.session_state.ultimos_novos["link"] != row["link"]
+                    ]
+                )
+
+                st.rerun()
 
             st.success(
                 "Novo produto detectado!"
@@ -715,7 +762,7 @@ st.dataframe(
 
     styled_df,
 
-    width="stretch"
+    use_container_width=True
 )
 
 st.divider()
