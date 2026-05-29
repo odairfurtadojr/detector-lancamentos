@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from datetime import datetime
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect as sa_inspect, text
 
 # ==========================================================
 # AUTO INSTALL PLAYWRIGHT CHROMIUM
@@ -54,7 +54,8 @@ from playwright.sync_api import sync_playwright
 # ==========================================================
 
 engine = create_engine(
-    "sqlite:///ubiquiti_history.db"
+    st.secrets["DATABASE_URL"],
+    pool_pre_ping=True
 )
 
 # ==========================================================
@@ -63,14 +64,9 @@ engine = create_engine(
 
 def criar_banco():
 
-    try:
+    inspector = sa_inspect(engine)
 
-        pd.read_sql(
-            "produtos",
-            engine
-        )
-
-    except Exception:
+    if not inspector.has_table("produtos"):
 
         vazio = pd.DataFrame(columns=[
 
@@ -563,7 +559,7 @@ def marcar_identificado(link):
 
         conn.execute(
             text(
-                "UPDATE produtos SET novo = 0 WHERE link = :link"
+                "UPDATE produtos SET novo = FALSE WHERE link = :link"
             ),
             {"link": link}
         )

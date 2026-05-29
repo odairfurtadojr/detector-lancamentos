@@ -1,0 +1,4 @@
+ubiquiti_history.db
+.streamlit/secrets.toml
+__pycache__/
+*.pyc
