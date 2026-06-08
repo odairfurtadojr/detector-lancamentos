@@ -580,7 +580,11 @@ st.set_page_config(
     layout="wide"
 )
 
-criar_banco()
+try:
+    criar_banco()
+except Exception as _e:
+    st.error(f"Erro de conexão com banco de dados:\n\n{_e}")
+    st.stop()
 
 st.title(
     "📡 Detector de Lançamentos Ubiquiti"
