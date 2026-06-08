@@ -53,8 +53,12 @@ from playwright.sync_api import sync_playwright
 # DATABASE
 # ==========================================================
 
+_db_url = st.secrets["DATABASE_URL"]
+if _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+
 engine = create_engine(
-    st.secrets["DATABASE_URL"],
+    _db_url,
     pool_pre_ping=True
 )
 
