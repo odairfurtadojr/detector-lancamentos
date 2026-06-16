@@ -570,6 +570,19 @@ def marcar_identificado(link):
 
         conn.commit()
 
+
+def marcar_todos_identificados():
+
+    with engine.connect() as conn:
+
+        conn.execute(
+            text(
+                "UPDATE produtos SET novo = FALSE WHERE novo = TRUE"
+            )
+        )
+
+        conn.commit()
+
 # ==========================================================
 # STREAMLIT
 # ==========================================================
@@ -642,14 +655,20 @@ col1.metric(
     len(df)
 )
 
-col2.metric(
+qtd_novos = int(df["novo"].fillna(False).astype(bool).sum())
 
-    "Novos Produtos",
+st.write(f"DEBUG qtd_novos={qtd_novos} | dtype={df['novo'].dtype} | valores únicos={df['novo'].unique().tolist()}")
 
-    len(
-        df[df["novo"] == True]
+with col2:
+
+    if st.button("✅ Identificar Lançamentos"):
+        marcar_todos_identificados()
+        st.rerun()
+
+    st.metric(
+        "Novos Produtos",
+        qtd_novos
     )
-)
 
 st.divider()
 
@@ -657,7 +676,7 @@ st.divider()
 # NOVOS LANÇAMENTOS
 # ==========================================================
 
-novos_df = st.session_state.ultimos_novos
+novos_df = df[df["novo"].fillna(False).astype(bool)].copy()
 
 if not novos_df.empty:
 
@@ -741,7 +760,7 @@ st.subheader(
 
 def destacar_novos(linha):
 
-    if linha["novo"] == True:
+    if bool(linha["novo"]):
 
         return [
             "background-color: #16351c; color: #7CFC00;"
