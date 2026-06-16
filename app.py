@@ -657,8 +657,6 @@ col1.metric(
 
 qtd_novos = int(df["novo"].fillna(False).astype(bool).sum())
 
-st.write(f"DEBUG qtd_novos={qtd_novos} | dtype={df['novo'].dtype} | valores únicos={df['novo'].unique().tolist()}")
-
 with col2:
 
     if st.button("✅ Identificar Lançamentos"):
