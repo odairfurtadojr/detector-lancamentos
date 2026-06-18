@@ -383,12 +383,12 @@ def buscar_produtos():
                         if slug.lower() in blacklist:
                             continue
 
-                        chave = link.lower()
+                        slug_lower = slug.lower()
 
-                        if chave in visitados:
+                        if slug_lower in visitados:
                             continue
 
-                        visitados.add(chave)
+                        visitados.add(slug_lower)
 
                         nome = formatar_nome(slug)
 
@@ -517,15 +517,26 @@ def atualizar_historico():
 
         return 0, pd.DataFrame()
 
-    existentes = set(
-        banco["link"].tolist()
+    slugs_existentes = set(
+        banco["link"]
+        .str.rstrip("/")
+        .str.split("/")
+        .str[-1]
+        .str.lower()
+        .tolist()
+    )
+
+    atuais["_slug"] = (
+        atuais["link"]
+        .str.rstrip("/")
+        .str.split("/")
+        .str[-1]
+        .str.lower()
     )
 
     novos = atuais[
-        ~atuais["link"].isin(
-            existentes
-        )
-    ].copy()
+        ~atuais["_slug"].isin(slugs_existentes)
+    ].drop(columns=["_slug"]).copy()
 
     if novos.empty:
 
@@ -552,6 +563,49 @@ def atualizar_historico():
     )
 
     return len(novos), novos
+
+# ==========================================================
+# LIMPAR DUPLICATAS
+# ==========================================================
+
+def limpar_duplicatas():
+
+    try:
+        banco = pd.read_sql("SELECT * FROM produtos", engine)
+    except Exception:
+        return 0
+
+    if banco.empty:
+        return 0
+
+    banco["_slug"] = (
+        banco["link"]
+        .str.rstrip("/")
+        .str.split("/")
+        .str[-1]
+        .str.lower()
+    )
+
+    banco_limpo = (
+        banco
+        .sort_values("primeira_detecao")
+        .drop_duplicates(subset=["_slug"], keep="first")
+        .drop(columns=["_slug"])
+        .reset_index(drop=True)
+    )
+
+    removidos = len(banco) - len(banco_limpo)
+
+    if removidos > 0:
+
+        banco_limpo.to_sql(
+            "produtos",
+            engine,
+            if_exists="replace",
+            index=False
+        )
+
+    return removidos
 
 # ==========================================================
 # MARCAR IDENTIFICADO
@@ -595,6 +649,7 @@ st.set_page_config(
 
 try:
     criar_banco()
+    limpar_duplicatas()
 except Exception as _e:
     st.error(f"Erro de conexão com banco de dados:\n\n{_e}")
     st.stop()
@@ -648,7 +703,7 @@ df = pd.read_sql(
 
 st.subheader("📊 Indicadores")
 
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 col1.metric(
     "Total Produtos",
@@ -667,6 +722,13 @@ with col2:
         "Novos Produtos",
         qtd_novos
     )
+
+with col3:
+
+    if st.button("🧹 Remover Duplicatas"):
+        removidos = limpar_duplicatas()
+        st.success(f"{removidos} duplicatas removidas.")
+        st.rerun()
 
 st.divider()
 
