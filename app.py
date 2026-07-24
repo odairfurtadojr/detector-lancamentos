@@ -175,9 +175,9 @@ def formatar_nome(slug):
 
 def buscar_produtos():
 
-    produtos = []
+    import json as _json
 
-    visitados = set()
+    produtos = []
 
     categorias = {
 
@@ -191,7 +191,7 @@ def buscar_produtos():
         "https://techspecs.ui.com/unifi/wifi",
 
         "Camera Security":
-        "https://techspecs.ui.com/unifi/cameras-nvrs",
+        "https://techspecs.ui.com/unifi/physical-security",
 
         "Door Access":
         "https://techspecs.ui.com/unifi/door-access",
@@ -204,6 +204,13 @@ def buscar_produtos():
 
         "Accessories":
         "https://techspecs.ui.com/unifi/accessories"
+    }
+
+    blacklist = {
+        "switching", "wifi", "cloud-gateways", "cameras-nvrs",
+        "physical-security", "door-access", "integrations",
+        "advanced-hosting", "accessories", "compare", "builder",
+        "matrix", "store", "downloads", "support", "products", "all"
     }
 
     with sync_playwright() as p:
@@ -225,8 +232,6 @@ def buscar_produtos():
                 "--disable-software-rasterizer",
 
                 "--disable-extensions",
-
-                "--disable-background-networking",
 
                 "--disable-background-timer-throttling",
 
@@ -256,171 +261,78 @@ def buscar_produtos():
 
         for categoria, url in categorias.items():
 
+            cat_path = url.split("/unifi/")[-1]
+
+            print("=" * 60)
+            print(f"VARRENDO: {categoria}")
+            print("=" * 60)
+
             try:
 
-                print("=" * 60)
-                print(f"VARRENDO: {categoria}")
-                print("=" * 60)
-
                 page.goto(
-
                     url,
-
                     timeout=120000,
-
-                    wait_until="domcontentloaded"
+                    wait_until="networkidle"
                 )
 
-                page.wait_for_timeout(5000)
+                page.wait_for_timeout(2000)
 
                 # ==================================================
-                # SCROLL COMPLETO
+                # EXTRAI SLUGS DO __NEXT_DATA__ (JSON embutido)
                 # ==================================================
 
-                for _ in range(100):
+                next_data = page.evaluate(
+                    "JSON.parse(document.getElementById('__NEXT_DATA__').textContent)"
+                )
 
-                    page.mouse.wheel(
-                        0,
-                        50000
-                    )
+                raw = _json.dumps(next_data)
 
-                    page.wait_for_timeout(300)
-
-                page.wait_for_timeout(3000)
-
-                # ==================================================
-                # HTML
-                # ==================================================
-
-                html = page.content()
-
-                # ==================================================
-                # REGEX
-                # ==================================================
-
-                regex = r'\/unifi\/[^"\']+'
-
-                matches = re.findall(
-                    regex,
-                    html
+                slugs_brutos = set(
+                    re.findall(r'"slug"\s*:\s*"([^"]+)"', raw)
                 )
 
                 encontrados = 0
 
-                for m in matches:
+                visitados_categoria = set()
 
-                    try:
+                for slug in slugs_brutos:
 
-                        m = m.replace("\\/", "/")
+                    slug_lower = slug.lower()
 
-                        m = m.split("?")[0]
+                    if slug_lower in blacklist:
+                        continue
 
-                        m = m.split("#")[0]
+                    if slug_lower in visitados_categoria:
+                        continue
 
-                        m = m.rstrip("/")
+                    visitados_categoria.add(slug_lower)
 
-                        extensoes = [
+                    link = (
+                        "https://techspecs.ui.com"
+                        f"/unifi/{cat_path}/{slug}"
+                    )
 
-                            ".svg",
-                            ".png",
-                            ".jpg",
-                            ".jpeg",
-                            ".gif",
-                            ".webp",
-                            ".css",
-                            ".js",
-                            ".json"
-                        ]
+                    nome = formatar_nome(slug)
 
-                        if any(
-                            ext in m.lower()
-                            for ext in extensoes
-                        ):
-                            continue
+                    produtos.append({
 
-                        link = (
-                            "https://techspecs.ui.com"
-                            + m
-                        )
+                        "nome":
+                        nome,
 
-                        partes = [
+                        "categoria":
+                        categoria,
 
-                            parte.strip()
+                        "link":
+                        link
+                    })
 
-                            for parte in m.split("/")
+                    encontrados += 1
 
-                            if parte.strip()
-                        ]
-
-                        if len(partes) < 3:
-                            continue
-
-                        slug = partes[-1]
-
-                        blacklist = [
-
-                            "switching",
-                            "wifi",
-                            "cloud-gateways",
-                            "cameras-nvrs",
-                            "door-access",
-                            "integrations",
-                            "advanced-hosting",
-                            "accessories",
-
-                            "compare",
-                            "builder",
-                            "matrix",
-
-                            "store",
-                            "downloads",
-                            "support",
-
-                            "products",
-                            "all"
-                        ]
-
-                        if slug.lower() in blacklist:
-                            continue
-
-                        slug_lower = slug.lower()
-
-                        if slug_lower in visitados:
-                            continue
-
-                        visitados.add(slug_lower)
-
-                        nome = formatar_nome(slug)
-
-                        produtos.append({
-
-                            "nome":
-                            nome,
-
-                            "categoria":
-                            categoria,
-
-                            "link":
-                            link
-                        })
-
-                        encontrados += 1
-
-                    except Exception as e:
-
-                        print(
-                            f"ERRO MATCH: {e}"
-                        )
-
-                print(
-                    f"PRODUTOS: {encontrados}"
-                )
+                print(f"PRODUTOS: {encontrados}")
 
             except Exception as e:
 
-                print(
-                    f"ERRO: {e}"
-                )
+                print(f"ERRO: {e}")
 
         browser.close()
 
