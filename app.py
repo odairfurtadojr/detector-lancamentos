@@ -429,26 +429,22 @@ def atualizar_historico():
 
         return 0, pd.DataFrame()
 
-    slugs_existentes = set(
+    links_existentes = set(
         banco["link"]
         .str.rstrip("/")
-        .str.split("/")
-        .str[-1]
         .str.lower()
         .tolist()
     )
 
-    atuais["_slug"] = (
+    atuais["_link_norm"] = (
         atuais["link"]
         .str.rstrip("/")
-        .str.split("/")
-        .str[-1]
         .str.lower()
     )
 
     novos = atuais[
-        ~atuais["_slug"].isin(slugs_existentes)
-    ].drop(columns=["_slug"]).copy()
+        ~atuais["_link_norm"].isin(links_existentes)
+    ].drop(columns=["_link_norm"]).copy()
 
     if novos.empty:
 
@@ -490,19 +486,17 @@ def limpar_duplicatas():
     if banco.empty:
         return 0
 
-    banco["_slug"] = (
+    banco["_link_norm"] = (
         banco["link"]
         .str.rstrip("/")
-        .str.split("/")
-        .str[-1]
         .str.lower()
     )
 
     banco_limpo = (
         banco
-        .sort_values("primeira_detecao")
-        .drop_duplicates(subset=["_slug"], keep="first")
-        .drop(columns=["_slug"])
+        .sort_values("primeira_detecao", kind="stable")
+        .drop_duplicates(subset=["_link_norm"], keep="first")
+        .drop(columns=["_link_norm"])
         .reset_index(drop=True)
     )
 
